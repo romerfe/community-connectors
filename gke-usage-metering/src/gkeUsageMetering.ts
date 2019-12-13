@@ -56,6 +56,12 @@ namespace gkeUsageMetering {
       .setType(types.YEAR_MONTH_DAY);
 
     fields
+      .newDimension()
+      .setId('invoice_month')
+      .setDescription('The billing Year and Month')
+      .setType(types.TEXT);
+    
+    fields
     .newMetric()
     .setAggregation(aggregations.SUM)
     .setDescription('The usage amount')
