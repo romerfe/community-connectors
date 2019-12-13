@@ -9,6 +9,7 @@ namespace gkeUsageMetering {
    * @param usageExportDatasetID
    * @param startDate
    * @param endDate
+   * @paran imvoiceMonth
    * @param consumptionEnabled
    */
   export function generateSQLQuery(
@@ -16,6 +17,7 @@ namespace gkeUsageMetering {
     usageExportDatasetID: string,
     startDate: string,
     endDate: string,
+    invoiceMonth: string,
     consumptionEnabled: boolean,
   ): string {
 
@@ -37,17 +39,20 @@ namespace gkeUsageMetering {
       SUM(usage.amount) AS amount,
       usage.unit AS usage_unit,
       SUM(cost) AS cost,
-      SUM(cost) / SUM(usage.amount) AS rate
+      SUM(cost) / SUM(usage.amount) AS rate,
+      invoice.month as invoice_month
     FROM
       \`${fullGCPBillingExportTableID}\`
     WHERE
-      usage_start_time >= TIMESTAMP("${startDate}")
-      AND usage_end_time <= TIMESTAMP("${endDate}")
+      invoice.month = "${invoiceMonth}"
+      --usage_start_time >= TIMESTAMP("${startDate}")
+      --AND usage_end_time <= TIMESTAMP("${endDate}")
       AND project.id = "${projectID}"
     GROUP BY
       project.id,
       sku.id,
-      usage.unit ),
+      usage.unit,
+      invoice.month ),
     -- Select from the raw resource usage table the resource usage records
     -- incurred in the given time interval.
     filtered_resource_usage AS (
@@ -63,7 +68,8 @@ namespace gkeUsageMetering {
       resource_usage.start_time,
       resource_usage.usage.amount AS amount,
       NULL as amount_with_untracked,
-      billing_table.rate
+      billing_table.rate,
+      billing_table.invoice_month
     FROM
       \`${fullUsageExportTableID}\` AS resource_usage
     INNER JOIN
@@ -101,7 +107,8 @@ namespace gkeUsageMetering {
       billing_table.min_usage_start_time AS start_time,
       billing_table.amount - IFNULL(aggregated_resource_usage.amount, 0.0) AS amount,
       NULL AS amount_with_untracked,
-      billing_table.rate
+      billing_table.rate,
+      billing_table.invoice_month
     FROM
       billing_table
     LEFT JOIN
@@ -143,7 +150,8 @@ namespace gkeUsageMetering {
         filtered_resource_usage.start_time,
         filtered_resource_usage.amount,
         (filtered_resource_usage.amount / aggregated_resource_usage_by_resource_name.amount) * breakdown_untracked_resource_usage.amount AS allocate_unused,
-        filtered_resource_usage.rate
+        filtered_resource_usage.rate,
+		    filtered_resource_usage.invoice_month
       FROM
         filtered_resource_usage
       INNER JOIN
@@ -197,7 +205,8 @@ namespace gkeUsageMetering {
         filtered_resource_usage_with_unused.start_time,
         filtered_resource_usage_with_unused.amount,
         filtered_resource_usage_with_unused.amount + filtered_resource_usage_with_unused.allocate_unused + unallocated_usage.amount * (filtered_resource_usage_with_unused.amount / total_used.amount) AS amount_with_untracked,
-        filtered_resource_usage_with_unused.rate
+        filtered_resource_usage_with_unused.rate,
+		    filtered_resource_usage_with_unused.invoice_month
       FROM
         filtered_resource_usage_with_unused
       INNER JOIN
@@ -224,7 +233,8 @@ namespace gkeUsageMetering {
       0 AS amount,
       resource_usage.amount * resource_usage.rate AS cost,
       resource_usage.amount_with_untracked * resource_usage.rate AS cost_with_unallocated_untracked,
-      "request" AS type
+      "request" AS type,
+	    resource_usage.invoice_month
     FROM (
       SELECT
         *
@@ -255,17 +265,20 @@ namespace gkeUsageMetering {
       SUM(usage.amount) AS amount,
       usage.unit AS usage_unit,
       SUM(cost) AS cost,
-      SUM(cost) / SUM(usage.amount) AS rate
+      SUM(cost) / SUM(usage.amount) AS rate,
+      invoice.month as invoice_month
     FROM
       \`${fullGCPBillingExportTableID}\`
     WHERE
-      usage_start_time >= TIMESTAMP("${startDate}")
-      AND usage_end_time <= TIMESTAMP("${endDate}")
+      invoice.month = "${invoiceMonth}"
+      --usage_start_time >= TIMESTAMP("${startDate}")
+      --AND usage_end_time <= TIMESTAMP("${endDate}")
       AND project.id = "${projectID}"
     GROUP BY
       project.id,
       sku.id,
-      usage.unit ),
+      usage.unit,
+      invoice.month),
     -- Select from the raw resource usage table the resource usage records
     -- incurred in the given time interval.
     filtered_resource_usage AS (
@@ -319,7 +332,8 @@ namespace gkeUsageMetering {
       billing_table.min_usage_start_time AS start_time,
       billing_table.amount - IFNULL(aggregated_resource_usage.amount, 0.0) AS amount,
       NULL AS amount_with_untracked,
-      billing_table.rate
+      billing_table.rate,
+	    billing_table.invoice_month
     FROM
       billing_table
     LEFT JOIN
@@ -361,7 +375,8 @@ namespace gkeUsageMetering {
         filtered_resource_usage.start_time,
         filtered_resource_usage.amount,
         (filtered_resource_usage.amount / aggregated_resource_usage_by_resource_name.amount) * breakdown_untracked_resource_usage.amount AS allocate_unused,
-        filtered_resource_usage.rate
+        filtered_resource_usage.rate,
+		    filtered_resource_usage.invoice_month
       FROM
         filtered_resource_usage
       INNER JOIN
@@ -415,7 +430,8 @@ namespace gkeUsageMetering {
         filtered_resource_usage_with_unused.start_time,
         filtered_resource_usage_with_unused.amount,
         filtered_resource_usage_with_unused.amount + filtered_resource_usage_with_unused.allocate_unused + unallocated_usage.amount * (filtered_resource_usage_with_unused.amount / total_used.amount) AS amount_with_untracked,
-        filtered_resource_usage_with_unused.rate
+        filtered_resource_usage_with_unused.rate,
+		    filtered_resource_usage_with_unused.invoice_month
       FROM
         filtered_resource_usage_with_unused
       INNER JOIN
@@ -450,7 +466,8 @@ namespace gkeUsageMetering {
       AS amount,
       resource_usage.amount * resource_usage.rate AS cost,
       resource_usage.amount_with_untracked * resource_usage.rate AS cost_with_unallocated_untracked,
-      "request" AS type
+      "request" AS type,
+	    resource_usage.invoice_month
     FROM (
       SELECT
         *
@@ -476,7 +493,8 @@ namespace gkeUsageMetering {
             resource_usage.sku_id,
             resource_usage.start_time,
             resource_usage.usage.amount AS amount,
-            billing_table.rate
+            billing_table.rate,
+			      billing_table.invoice_month
           FROM
             \`${fullConsumptionUsageExportTableID}\` AS resource_usage
           INNER JOIN
@@ -523,7 +541,8 @@ namespace gkeUsageMetering {
             AS amount,
             filtered_resource_usage.amount * filtered_resource_usage.rate AS cost,
             0 AS cost_with_unallocated_untracked,
-            "consumption" AS type
+            "consumption" AS type,
+			      filtered_resource_usage.invoice_month
           FROM filtered_resource_usage
           )
         SELECT
