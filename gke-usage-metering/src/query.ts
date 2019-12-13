@@ -16,6 +16,7 @@ namespace gkeUsageMetering {
     usageExportDatasetID: string,
     startDate: string,
     endDate: string,
+    invoice_month: string;
     consumptionEnabled: boolean,
   ): string {
 
