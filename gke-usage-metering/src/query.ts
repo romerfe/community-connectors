@@ -9,7 +9,7 @@ namespace gkeUsageMetering {
    * @param usageExportDatasetID
    * @param startDate
    * @param endDate
-   * @paran imvoiceMonth
+   * @paran invoiceMonth
    * @param consumptionEnabled
    */
   export function generateSQLQuery(
