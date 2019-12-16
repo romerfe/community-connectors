@@ -59,7 +59,7 @@ namespace gkeUsageMetering {
       .newDimension()
       .setId('invoice_month')
       .setDescription('The billing Year and Month')
-      .setType(types.TEXT);
+      .setType(types.YEAR_MONTH);
     
     fields
     .newMetric()
